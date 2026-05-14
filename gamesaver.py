@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
+from tkinter import Listbox
 
 
 LOCAL_SAVES = Path(r"C:\STALKER GAMMA\Anomaly\appdata\savedgames")
@@ -210,132 +211,149 @@ def sync_onedrive_to_local():
         messagebox.showerror("Error", str(e))
 
 
+def show():
+    label.config(text=f"Selected: {listbox.get(ACTIVE)}")
+
+
+# Main window
 root = tk.Tk()
 root.title("OneDrive Game Sync")
-root.geometry("1100x520")
-root.resizable(False,False)
+root.geometry("1020x560")
+root.resizable(False, False)
 root.config(bg="black")
 
+# Main layout rows
+root.columnconfigure(0, weight=1)
+root.columnconfigure(1, weight=1)
 
-top_frame = tk.Frame(root, bg="black")
-top_frame.pack(fill="x", padx=20, pady=10)
+# Top title / refresh row
+header_frame = tk.Frame(root, bg="black")
+header_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=(130,10), pady=(10, 20))
 
-# 3 columns: left status || center title/buttons || right status/refresh
-top_frame.columnconfigure(0, weight=1)
-top_frame.columnconfigure(1, weight=1)
-top_frame.columnconfigure(2, weight=1)
+header_frame.columnconfigure(0, weight=1)
+header_frame.columnconfigure(1, weight=1)
+header_frame.columnconfigure(2, weight=1)
+
+# Listbox  
+listbox = Listbox(root)
+for item in [rf"{ONEDRIVE_ROOT}"]:
+    listbox.insert(0, item)
+listbox.grid()
+
+# Button & Label  
+# Button(root, text="Show Selection", command=show).pack()
+# label = Label(root, text=" ")
+# label.pack()
 
 title = tk.Label(
-    top_frame,
+    header_frame,
     text="OneDrive Game Sync",
     font=("Segoe UI", 16, "bold"),
     bg="white",
     fg="black",
-    padx=12,
+    padx=4,
     pady=8
 )
-title.grid(row=0, column=1, pady=5)
+title.grid(row=0, column=1,)
+
+refresh_button = tk.Button(
+    header_frame,
+    text="Refresh Save Status",
+    font=("Segoe UI", 9),
+    command=refresh_status
+)
+refresh_button.grid(row=0, column=2, sticky="e", padx=(0, 10))
+
+
+# Two-column content area
+content_frame = tk.Frame(root, bg="black")
+content_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10)
+
+content_frame.columnconfigure(0, weight=1, uniform="sync_columns")
+content_frame.columnconfigure(1, weight=1, uniform="sync_columns")
+
+
+# LEFT: LOCAL FILES
+local_panel = tk.Frame(content_frame, bg="black")
+local_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
 local_label = tk.Label(
-    top_frame,
+    local_panel,
     text="Local: Checking...",
     font=("Segoe UI", 9),
-    justify="left",
+    justify="center",
     bg="white"
 )
-local_label.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+local_label.pack(fill="x", pady=(0, 6))
 
 button_one = tk.Button(
-    top_frame,
+    local_panel,
     text="Local → OneDrive",
     font=("Segoe UI", 10, "bold"),
     height=2,
     command=sync_local_to_onedrive
 )
-button_one.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
-
-onedrive_label = tk.Label(
-    top_frame,
-    text="OneDrive: Checking...",
-    font=("Segoe UI", 9),
-    justify="left",
-    bg="white"
-)
-onedrive_label.grid(row=1, column=2, padx=10, pady=10, sticky="ew")
-
-button_two = tk.Button(
-    top_frame,
-    text="OneDrive → Local",
-    font=("Segoe UI", 10, "bold"),
-    height=2,
-    command=sync_onedrive_to_local
-)
-button_two.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
-
-refresh_button = tk.Button(
-    top_frame,
-    text="Refresh Save Status",
-    font=("Segoe UI", 10),
-    height=2,
-    command=refresh_status
-)
-refresh_button.grid(row=2, column=2, padx=10, pady=5, sticky="ew")
-
-#####
-#####
-
-file_frame = tk.Frame(root, bg="black")
-file_frame.columnconfigure(0, weight=1)
-file_frame.columnconfigure(1, weight=1)
-file_frame.pack(fill="both", expand=True, padx=20, pady=10)
+button_one.pack(fill="x", pady=(0, 8))
 
 local_tree = ttk.Treeview(
-    master=file_frame,
+    master=local_panel,
     columns=("filename", "modified", "size"),
     show="headings",
     selectmode="browse",
-    height=12
+    height=13
 )
 
 local_tree.heading("filename", text="Local Files")
 local_tree.heading("modified", text="Modified")
 local_tree.heading("size", text="Size")
 
-local_tree.column("filename", width=220)
-local_tree.column("modified", width=160)
+local_tree.column("filename", width=230)
+local_tree.column("modified", width=170)
 local_tree.column("size", width=80)
 
-local_tree.grid(
-    column=0,
-    row=0,
-    sticky="nsew",
-    padx=(0, 0),
-    pady=0
+local_tree.pack(fill="both", expand=True)
+
+
+# RIGHT: OneDrive
+onedrive_panel = tk.Frame(content_frame, bg="black")
+onedrive_panel.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+
+onedrive_label = tk.Label(
+    onedrive_panel,
+    text="OneDrive: Checking...",
+    font=("Segoe UI", 9),
+    justify="center",
+    bg="white"
 )
+onedrive_label.pack(fill="x", pady=(0, 6))
+
+button_two = tk.Button(
+    onedrive_panel,
+    text="OneDrive → Local",
+    font=("Segoe UI", 10, "bold"),
+    height=2,
+    command=sync_onedrive_to_local
+)
+button_two.pack(fill="x", pady=(0, 8))
 
 onedrv_tree = ttk.Treeview(
-    master=file_frame,
+    master=onedrive_panel,
     columns=("filename", "modified", "size"),
     show="headings",
     selectmode="browse",
-    height=12
+    height=13
 )
 
 onedrv_tree.heading("filename", text="OneDrive Files")
 onedrv_tree.heading("modified", text="Modified")
 onedrv_tree.heading("size", text="Size")
 
-onedrv_tree.column("filename", width=220)
-onedrv_tree.column("modified", width=160)
+onedrv_tree.column("filename", width=230)
+onedrv_tree.column("modified", width=170)
 onedrv_tree.column("size", width=80)
 
-onedrv_tree.grid(
-    column=1,
-    row=0,
-    sticky="ne",
-    padx=(0,0),
-    pady=0,
-)
+onedrv_tree.pack(fill="both", expand=True)
+
 
 refresh_status()
 
