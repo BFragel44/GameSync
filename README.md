@@ -11,7 +11,8 @@ This was built to make it easier to move between multiple PCs without losing pro
 - Sync saves from Local ➜ OneDrive
 - Sync saves from OneDrive ➜ Local
 - Timestamp comparison to prevent accidental overwrites
-- Automatic backup folder support
+- Optional destination backup folder support
+- Save folder paths loaded from `config.json`
 - Simple desktop GUI using Tkinter
 
 ---

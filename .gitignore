@@ -16,6 +16,9 @@ Thumbs.db
 .classpath
 .c9/
 *.sublime-workspace
+*__pycache__/
+.mypy_cache/
+
 
 # Dependencies
 node_modules/

@@ -1,21 +1,44 @@
 import shutil
-import os
+import json
 from pathlib import Path
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-from tkinter import filedialog
-from tkinter import Listbox
 
 
-LOCAL_SAVES = Path(r"C:\STALKER GAMMA\Anomaly\appdata\savedgames")
+CONFIG_FILE = Path(__file__).with_name("config.json")
+DEFAULT_CONFIG = {
+    "local_saves": r"C:\STALKER GAMMA\Anomaly\appdata\savedgames",
+    "onedrive_saves": r"C:\Users\Brett\OneDrive\STALKER MAIN PC SAVE\savedgames",
+}
 
-ONEDRIVE_ROOT = Path(r"C:\Users\Brett\OneDrive\STALKER MAIN PC SAVE")
-ONEDRIVE_SAVES = ONEDRIVE_ROOT / "savedgames"
+
+def save_config(config):
+    with CONFIG_FILE.open("w", encoding="utf-8") as config_file:
+        json.dump(config, config_file, indent=2)
+
+
+def load_config():
+    if not CONFIG_FILE.exists():
+        save_config(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG.copy()
+
+    with CONFIG_FILE.open("r", encoding="utf-8") as config_file:
+        loaded_config = json.load(config_file)
+
+    config = DEFAULT_CONFIG.copy()
+    config.update(loaded_config)
+    return config
+
+
+config = load_config()
+
+LOCAL_SAVES = Path(config["local_saves"])
+ONEDRIVE_SAVES = Path(config["onedrive_saves"])
 
 LOCAL_BACKUP_ROOT = LOCAL_SAVES / "BACKUP"
-ONEDRIVE_BACKUP_ROOT = ONEDRIVE_ROOT / "BACKUP"
+ONEDRIVE_BACKUP_ROOT = ONEDRIVE_SAVES.parent / "BACKUP"
 
 
 def timestamp():
@@ -163,6 +186,8 @@ def refresh_status():
 
     populate_tree(local_tree, LOCAL_SAVES)
     populate_tree(onedrv_tree, ONEDRIVE_SAVES)
+    local_path_var.set(str(LOCAL_SAVES))
+    onedrive_path_var.set(str(ONEDRIVE_SAVES))
 
 
 def sync_local_to_onedrive():
@@ -170,18 +195,26 @@ def sync_local_to_onedrive():
         if not LOCAL_SAVES.exists():
             raise FileNotFoundError(f"Local saves folder not found:\n{LOCAL_SAVES}")
 
-        backup_folder(
-            ONEDRIVE_SAVES,
-            ONEDRIVE_BACKUP_ROOT,
-            "onedrive_savedgames_backup"
-        )
+        backup_created = None
+        if onedrive_backup_var.get():
+            backup_created = backup_folder(
+                ONEDRIVE_SAVES,
+                ONEDRIVE_BACKUP_ROOT,
+                "onedrive_savedgames_backup"
+            )
 
         copy_folder_contents(LOCAL_SAVES, ONEDRIVE_SAVES)
         refresh_status()
 
+        backup_message = (
+            f"\n\nBackup created:\n{backup_created}"
+            if backup_created
+            else "\n\nNo destination backup was created."
+        )
+
         messagebox.showinfo(
             "Success",
-            "LOCAL saves copied to OneDrive.\n\nExisting OneDrive saves were backed up first."
+            f"LOCAL saves copied to OneDrive.{backup_message}"
         )
 
     except Exception as e:
@@ -193,34 +226,43 @@ def sync_onedrive_to_local():
         if not ONEDRIVE_SAVES.exists():
             raise FileNotFoundError(f"OneDrive saves folder not found:\n{ONEDRIVE_SAVES}")
 
-        backup_folder(
-            LOCAL_SAVES,
-            LOCAL_BACKUP_ROOT,
-            "local_savedgames_backup"
-        )
+        backup_created = None
+        if local_backup_var.get():
+            backup_created = backup_folder(
+                LOCAL_SAVES,
+                LOCAL_BACKUP_ROOT,
+                "local_savedgames_backup"
+            )
 
         copy_folder_contents(ONEDRIVE_SAVES, LOCAL_SAVES)
         refresh_status()
 
+        backup_message = (
+            f"\n\nBackup created:\n{backup_created}"
+            if backup_created
+            else "\n\nNo destination backup was created."
+        )
+
         messagebox.showinfo(
             "Success",
-            "ONEDRIVE saves copied to LOCAL folder.\n\nExisting local saves were backed up first."
+            f"ONEDRIVE saves copied to LOCAL folder.{backup_message}"
         )
 
     except Exception as e:
         messagebox.showerror("Error", str(e))
 
 
-def show():
-    label.config(text=f"Selected: {listbox.get(ACTIVE)}")
-
-
 # Main window
 root = tk.Tk()
 root.title("OneDrive Game Sync")
-root.geometry("1020x560")
+root.geometry("1020x600")
 root.resizable(False, False)
 root.config(bg="black")
+
+local_backup_var = tk.BooleanVar(value=False)
+onedrive_backup_var = tk.BooleanVar(value=False)
+local_path_var = tk.StringVar(value=str(LOCAL_SAVES))
+onedrive_path_var = tk.StringVar(value=str(ONEDRIVE_SAVES))
 
 # Main layout rows
 root.columnconfigure(0, weight=1)
@@ -233,17 +275,6 @@ header_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=(130,10), pad
 header_frame.columnconfigure(0, weight=1)
 header_frame.columnconfigure(1, weight=1)
 header_frame.columnconfigure(2, weight=1)
-
-# Listbox  
-listbox = Listbox(root)
-for item in [rf"{ONEDRIVE_ROOT}"]:
-    listbox.insert(0, item)
-listbox.grid()
-
-# Button & Label  
-# Button(root, text="Show Selection", command=show).pack()
-# label = Label(root, text=" ")
-# label.pack()
 
 title = tk.Label(
     header_frame,
@@ -295,6 +326,16 @@ button_one = tk.Button(
 )
 button_one.pack(fill="x", pady=(0, 8))
 
+local_path_entry = tk.Entry(
+    local_panel,
+    textvariable=local_path_var,
+    font=("Segoe UI", 9),
+    state="readonly",
+    readonlybackground="white",
+    fg="black"
+)
+local_path_entry.pack(fill="x", pady=(0, 8))
+
 local_tree = ttk.Treeview(
     master=local_panel,
     columns=("filename", "modified", "size"),
@@ -302,6 +343,14 @@ local_tree = ttk.Treeview(
     selectmode="browse",
     height=13
 )
+
+# Vertical scrollbar
+vsb = ttk.Scrollbar(local_panel, orient="vertical", command=local_tree.yview)
+vsb.pack(side="right", fill="y")
+
+# Vertical scrollbar config
+local_tree.configure(yscrollcommand=vsb.set)
+local_tree.pack(expand=True, fill="both")
 
 local_tree.heading("filename", text="Local Files")
 local_tree.heading("modified", text="Modified")
@@ -313,8 +362,21 @@ local_tree.column("size", width=80)
 
 local_tree.pack(fill="both", expand=True)
 
+local_backup_check = tk.Checkbutton(
+    local_panel,
+    text="Create backup when this is destination",
+    variable=local_backup_var,
+    bg="black",
+    fg="white",
+    selectcolor="black",
+    activebackground="black",
+    activeforeground="white",
+    anchor="w"
+)
+local_backup_check.pack(fill="x", pady=(6, 0))
 
-# RIGHT: OneDrive
+
+# RIGHT: ONEDRIVE FILES
 onedrive_panel = tk.Frame(content_frame, bg="black")
 onedrive_panel.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
 
@@ -336,6 +398,16 @@ button_two = tk.Button(
 )
 button_two.pack(fill="x", pady=(0, 8))
 
+onedrive_path_entry = tk.Entry(
+    onedrive_panel,
+    textvariable=onedrive_path_var,
+    font=("Segoe UI", 9),
+    state="readonly",
+    readonlybackground="white",
+    fg="black"
+)
+onedrive_path_entry.pack(fill="x", pady=(0, 8))
+
 onedrv_tree = ttk.Treeview(
     master=onedrive_panel,
     columns=("filename", "modified", "size"),
@@ -343,6 +415,14 @@ onedrv_tree = ttk.Treeview(
     selectmode="browse",
     height=13
 )
+
+# Vertical scrollbar
+vsb = ttk.Scrollbar(onedrive_panel, orient="vertical", command=onedrv_tree.yview)
+vsb.pack(side="right", fill="y")
+
+# Vertical scrollbar config
+onedrv_tree.configure(yscrollcommand=vsb.set)
+onedrv_tree.pack(expand=True, fill="both")
 
 onedrv_tree.heading("filename", text="OneDrive Files")
 onedrv_tree.heading("modified", text="Modified")
@@ -353,6 +433,19 @@ onedrv_tree.column("modified", width=170)
 onedrv_tree.column("size", width=80)
 
 onedrv_tree.pack(fill="both", expand=True)
+
+onedrive_backup_check = tk.Checkbutton(
+    onedrive_panel,
+    text="Create backup when this is destination",
+    variable=onedrive_backup_var,
+    bg="black",
+    fg="white",
+    selectcolor="black",
+    activebackground="black",
+    activeforeground="white",
+    anchor="w"
+)
+onedrive_backup_check.pack(fill="x", pady=(6, 0))
 
 
 refresh_status()
