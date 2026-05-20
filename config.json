@@ -1,4 +1,8 @@
 {
   "local_saves": "C:\\STALKER GAMMA\\Anomaly\\appdata\\savedgames",
-  "onedrive_saves": "C:\\Users\\Brett\\OneDrive\\STALKER MAIN PC SAVE\\savedgames"
+  "onedrive_saves": "C:\\Users\\Brett\\OneDrive\\STALKER MAIN PC SAVE\\savedgames",
+  "saved_locations": [
+    "C:\\STALKER GAMMA\\Anomaly\\appdata\\savedgames",
+    "C:\\Users\\Brett\\OneDrive\\STALKER MAIN PC SAVE\\savedgames"
+  ]
 }

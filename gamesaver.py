@@ -5,12 +5,17 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter import filedialog
 
 
 CONFIG_FILE = Path(__file__).with_name("config.json")
 DEFAULT_CONFIG = {
     "local_saves": r"C:\STALKER GAMMA\Anomaly\appdata\savedgames",
     "onedrive_saves": r"C:\Users\Brett\OneDrive\STALKER MAIN PC SAVE\savedgames",
+    "saved_locations": [
+        r"C:\STALKER GAMMA\Anomaly\appdata\savedgames",
+        r"C:\Users\Brett\OneDrive\STALKER MAIN PC SAVE\savedgames",
+    ]
 }
 
 
@@ -32,10 +37,72 @@ def load_config():
     return config
 
 
+def add_folder_location(target_var):
+    folder = filedialog.askdirectory()
+
+    if not folder:
+        return
+
+    folder = str(Path(folder))
+
+    if folder not in config["saved_locations"]:
+        config["saved_locations"].append(folder)
+
+    target_var.set(folder)
+
+    refresh_dropdown_values()
+    apply_selected_paths()
+
+
+def apply_selected_paths():
+    global LOCAL_SAVES, ONEDRIVE_SAVES
+    global LOCAL_BACKUP_ROOT, ONEDRIVE_BACKUP_ROOT
+    global LAST_VALID_LOCAL, LAST_VALID_ONEDRIVE
+
+    selected_local = local_path_var.get()
+    selected_onedrive = onedrive_path_var.get()
+
+    # Guard against identical folders
+    if selected_local == selected_onedrive:
+        messagebox.showwarning(
+            "Same Folder Selected",
+            "Local and OneDrive paths cannot be the same folder."
+        )
+
+        # Reverts dropdowns to last valid paths
+        local_path_var.set(LAST_VALID_LOCAL)
+        onedrive_path_var.set(LAST_VALID_ONEDRIVE)
+
+        return
+
+    LOCAL_SAVES = Path(selected_local)
+    ONEDRIVE_SAVES = Path(selected_onedrive)
+
+    LOCAL_BACKUP_ROOT = LOCAL_SAVES / "BACKUP"
+    ONEDRIVE_BACKUP_ROOT = ONEDRIVE_SAVES.parent / "BACKUP"
+
+    # Save current valid paths
+    LAST_VALID_LOCAL = selected_local
+    LAST_VALID_ONEDRIVE = selected_onedrive
+
+    config["local_saves"] = str(LOCAL_SAVES)
+    config["onedrive_saves"] = str(ONEDRIVE_SAVES)
+
+    save_config(config)
+    refresh_status()
+
+
+def on_path_selected(event=None):
+    apply_selected_paths()
+
+
 config = load_config()
 
 LOCAL_SAVES = Path(config["local_saves"])
 ONEDRIVE_SAVES = Path(config["onedrive_saves"])
+
+LAST_VALID_LOCAL = str(LOCAL_SAVES)
+LAST_VALID_ONEDRIVE = str(ONEDRIVE_SAVES)
 
 LOCAL_BACKUP_ROOT = LOCAL_SAVES / "BACKUP"
 ONEDRIVE_BACKUP_ROOT = ONEDRIVE_SAVES.parent / "BACKUP"
@@ -190,6 +257,11 @@ def refresh_status():
     onedrive_path_var.set(str(ONEDRIVE_SAVES))
 
 
+def refresh_dropdown_values():
+    local_path_dropdown["values"] = config["saved_locations"]
+    onedrive_path_dropdown["values"] = config["saved_locations"]
+
+
 def sync_local_to_onedrive():
     try:
         if not LOCAL_SAVES.exists():
@@ -326,15 +398,23 @@ button_one = tk.Button(
 )
 button_one.pack(fill="x", pady=(0, 8))
 
-local_path_entry = tk.Entry(
+local_path_dropdown = ttk.Combobox(
     local_panel,
     textvariable=local_path_var,
-    font=("Segoe UI", 9),
+    values=config["saved_locations"],
     state="readonly",
-    readonlybackground="white",
-    fg="black"
+    font=("Segoe UI", 9)
 )
-local_path_entry.pack(fill="x", pady=(0, 8))
+local_path_dropdown.pack(fill="x", pady=(0, 8))
+local_path_dropdown.bind("<<ComboboxSelected>>", on_path_selected)
+
+
+local_browse_button = tk.Button(
+    local_panel,
+    text="Add / Change Local Folder",
+    command=lambda: add_folder_location(local_path_var)
+)
+local_browse_button.pack(fill="x", pady=(0, 8))
 
 local_tree = ttk.Treeview(
     master=local_panel,
@@ -398,15 +478,22 @@ button_two = tk.Button(
 )
 button_two.pack(fill="x", pady=(0, 8))
 
-onedrive_path_entry = tk.Entry(
+onedrive_path_dropdown = ttk.Combobox(
     onedrive_panel,
     textvariable=onedrive_path_var,
-    font=("Segoe UI", 9),
+    values=config["saved_locations"],
     state="readonly",
-    readonlybackground="white",
-    fg="black"
+    font=("Segoe UI", 9)
 )
-onedrive_path_entry.pack(fill="x", pady=(0, 8))
+onedrive_path_dropdown.pack(fill="x", pady=(0, 8))
+onedrive_path_dropdown.bind("<<ComboboxSelected>>", on_path_selected)
+
+onedrive_browse_button = tk.Button(
+    onedrive_panel,
+    text="Add / Change OneDrive Folder",
+    command=lambda: add_folder_location(onedrive_path_var)
+)
+onedrive_browse_button.pack(fill="x", pady=(0, 8))
 
 onedrv_tree = ttk.Treeview(
     master=onedrive_panel,
